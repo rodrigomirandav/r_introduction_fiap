@@ -1,0 +1,11 @@
+---
+title: "Trabalho de R - FIAP"
+output: html_notebook
+---
+
+
+
+```{r}
+plot(cars)
+```
+
