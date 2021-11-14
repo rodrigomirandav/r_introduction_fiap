@@ -3,9 +3,156 @@ title: "Trabalho de R - FIAP"
 output: html_notebook
 ---
 
+Importando as bibliotecas necessárias
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(plotly)
+library(gmodels)
+library(sqldf)
+```
+
+Carregando o arquivo Cadastral para fazer as análises
+
+```{r}
+ds <- read_excel("cadastral.xlsx")
+ds
+```
+
+1) Tire uma tabela de frequência usando a função table na variável Sexo. Quantos homens e quantas mulheres têm no arquivo?
+
+```{r}
+table(ds$Sexo)
+```
+2) Ordenar a variável ID.
+
+```{r}
+ds <- ds[order(ds$ID),]
+ds
+```
+
+3) Remova os ID duplicados. Coloque esse arquivo dentro de um objeto chamado A.
+
+```{r}
+A <- unique(ds)
+A
+```
+
+4) Já no objeto A. Tire uma tabela de frequência usando a função table na variável Sexo. Quantos homens e quantas mulheres têm no arquivo?
+
+```{r}
+table(A$Sexo)
+```
+5) Crie uma variável data atual e acrescenta essa variável ao objeto/ arquivo A.
+
+```{r}
+A$data_atual <- Sys.Date()
+A
+```
+6) Verifique se a variável salario é numérica?
+
+```{r}
+is.numeric(A$salario)
+```
+7) Mostre o mínimo e o máximo da variável salario.
+
+```{r}
+print(sprintf("Mínimo salário -> %0.2f", min(A$salario)))
+print(sprintf("Máximo salário -> %0.2f", max(A$salario)))
+```
+
+8) Crie uma variável faixa de salario com as seguintes quebras: 1574, 3000, 5000, 7000, 13500.
+
+```{r}
+A$faixa_salario <- cut(A$salario, c(1574, 3000, 5000, 7000, 13500),label=c("A","B","C","D"))
+A
+```
+9) Crie um visualizador/ matriz usando a função View(A). Exatamente esse comando.
+```{r}
+View(A)
+```
+
+10) Atribua o arquivo Transacional ao objeto B. E crie um visualizador/ matriz usando a função View(B).
+
+```{r}
+B <- read_excel("transacional.xlsx")
+View(B)
+```
+
+11) Crie um objeto chamado consolidado e faça uma união dos arquivos A e B através do Left join. Usando a função do R.
+
+```{r}
+consolidado <- merge(A,B, by='ID', all.x=T)
+consolidado
+```
+12) Crie uma variável comprometimento de renda usando as variáveis ValorEmprestimo e Salario.  Para isso utilize a expressão. (ValorEmprestimo / salario). Quantas variáveis ficaram no arquivo?
+
+```{r}
+consolidado$comprometido_de_renda <- (consolidado$ValorEmprestimo / consolidado$salario)
+print(sprintf("Número de colunas -> %0.0f", ncol(consolidado)))
+```
+
+
+
+
+
+
+
+
+13) Faça um gráfico de pie usando o pacote plotly. Pode usar qualquer variáveis Explique o gráfico.
 
 
 ```{r}
-plot(cars)
+fig <- plot_ly(consolidado, labels = ~faixa_salario, values = ~salario, type = 'pie')
+fig <- fig %>% layout(title = 'Faixa salarial',
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+fig
+```
+```{r}
+#Criei um gráfico de pizza com a variável de faixa salarial:
+#      39,2% das pessoas pertecem ao grupo A ([1500 - 3000[)
+#      30,7% das pessoas pertecem ao grupo B ([3000 - 5000[)
+#      17,7% das pessoas pertecem ao grupo C ([5000 - 7000[)
+#      12,4% das pessoas pertecem ao grupo D ([7000 - 13500[)
+# Temos praticamente 70% das pessoas com renda salarial de até 5000,00 reais formados pela class A e # B
+```
+
+14) Faça um  tabela cruzada usando a função Crosstable do packege gmodels das variáveis sexo e default. Olhando para percentual coluna, quem tem o maior % de inadimplência H ou M? e qual é esse valor.
+
+```{r}
+Cross <- CrossTable(consolidado$Sexo, consolidado$default)
+```
+```{r}
+print("Quem tem o maior precentual de inadiplência são os homens com 51,30%")
+```
+15) Utilizando a biblioteca SQLDF pede-se:
+       a) Selecione da tabela consolidado os registros do sexo masculino e que possui um conta particular.
+       b) Tira a média de QtdaPagas pela variável Atraso .
+
+```{r}
+sexo_masculino_particular <- sqldf("select * from consolidado where sexo = 'Masculino' and conta = 'Particular'")
+sexo_masculino_particular
+```
+```{r}
+QtdaPagas_vs_Atraso <- sqldf("select Atraso, avg(QtdaPagas) as media_QtdaPagas from consolidado group by Atraso")
+QtdaPagas_vs_Atraso
+```      
+
+16) Calcule a expressão numérica:
+	(((√16)/2)*3^2)/2*(9-2^3),
+	
+```{r}
+calculo1 = ((sqrt(16)/2)*3^2)/2*(9-2^3)
+calculo1
+```
+17) Calcule a expressão numérica:
+	-(-2^3)+(-〖1)〗^0-(√(25−3^2 ))-5^3/25
+
+```{r}
+calculo2 <- -(-2^3) + (-1)^0 - sqrt(25 - ( 3 ^ 2)) - ( (5 ^ 3) / 25 )
+calculo2
 ```
 
