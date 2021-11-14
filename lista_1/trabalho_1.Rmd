@@ -93,13 +93,6 @@ consolidado$comprometido_de_renda <- (consolidado$ValorEmprestimo / consolidado$
 print(sprintf("Número de colunas -> %0.0f", ncol(consolidado)))
 ```
 
-
-
-
-
-
-
-
 13) Faça um gráfico de pie usando o pacote plotly. Pode usar qualquer variáveis Explique o gráfico.
 
 
@@ -154,5 +147,12 @@ calculo1
 ```{r}
 calculo2 <- -(-2^3) + (-1)^0 - sqrt(25 - ( 3 ^ 2)) - ( (5 ^ 3) / 25 )
 calculo2
+```       
+
+Salvando o Arquivo
+
+```{r} 
+write_excel_csv2(consolidado, file="consolidado_para_analise.csv")
+consolidado 
 ```
 
