@@ -1,11 +1,237 @@
 ---
-title: "Trabalho de R - FIAP"
-output: html_notebook
+title: "Trabalho de R Modelos - FIAP"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
 ---
 
+Carregando as bibliotecas
+```{r}
+#install.packages("ggcorrplot")
+#install.packages("rattle")
+
+library(tidyverse)
+library(readr)
+library(ggcorrplot)
+```
+
+Carregando os dados
+
+```{r}
+ds <- read_delim("consolidado_para_analise.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+```
+
+- Analisando quantidade de observações e variáveis
+
+```{r}
+dim(ds)
+```
+Conhecendo as variáveis presentes neste dataset
+
+```{r}
+names(ds)
+```
+* Anotações importantes para análise dos dados:
+
+```{r}
+# ID -> Identificador
+
+# Qualitativas:
+# Sexo -> nominal (Feminino, Masculino) 
+# EstadoCivil -> nominal (1,2,3,4) 
+# Conta -> nominal (empresa, Particular) 
+# faixa_salario -> nominal (A,B,C,D) 
+# Atraso -> nominal (Sim, Não) 
+
+# Quantitativas:
+# NumerodeFilhos -> discreta
+# TempodeServiço -> discreta
+# TempodeResidencia -> discreta
+# salario -> contínua
+# QtdaParcelas -> discreta
+# ValorEmprestimo -> contínua
+# QtdaPagas -> discreta
+# comprometido_de_renda -> contínua
+
+# Excluir:
+# data_atual
+# ID
+# DataNascimento
+
+# Preditoras:
+# default -> Classificadora
+# default1 -> Regressora
+```
+
+* Criando um novo dataset para retirar algumas colunas
+
+```{r}
+ds_analise <- select(ds, -(ID), -(data_atual), -(DataNascimento))
+ds_analise
+```
+
+* Verificando as variavéis que ficou no dataset
+
+```{r}
+names(ds_analise)
+```
+* Verificando a correlação das variáveis númericas
+
+```{r}
+# NumerodeFilhos -> discreta
+# TempodeServiço -> discreta
+# TempodeResidencia -> discreta
+# salario -> contínua
+# QtdaParcelas -> discreta
+# ValorEmprestimo -> contínua
+# QtdaPagas -> discreta
+# comprometido_de_renda -> contínua
+
+ds_numericos <- select_if(ds_analise, is.numeric)
+correl <-cor(ds_numericos)
+ggcorrplot(correl)
+```
+```{r}
+# As variáveis -> QtdaPagas, ValorEmprestimo e QtdaParcelas estão muito correlacionadas,
+# irei verificar como o modelo se comporta em relação a elas, e então irei decidir se tiro alguma
+# menos importante.
+```
+
+
+A) Criar o modelo de regressão logística com a variável target DEFAULT1 e interpretar os coeficientes e verificar o quanto o modelo teve de acurácia.
+
+```{r}
+logistica <- glm(default1 ~ Sexo + EstadoCivil + NumerodeFilhos + TempodeResidencia +
+                    faixa_salario + QtdaParcelas + Atraso + ValorEmprestimo +
+                   QtdaPagas + Conta + salario, family = binomial, data = ds_analise)
+summary(logistica)
+```
+```{r}
+# * Através desta  primeira analise, a variável QtdaPagas apresentou mais significante que as demais
+# ValorEmprestimo e QtdaParcelas, ainda analisando o caso de correlação
+# Conta apresentou valores NA (1 not defined because of singularities), já vou excluir
+```
+
+* Retirando a variável QtdaParcelas, pois creio que o valoremprestimo seja mais relevante
+
+```{r}
+logistica <- glm(default1 ~ Sexo + 
+                            EstadoCivil + 
+                            NumerodeFilhos + 
+                            TempodeResidencia +
+                            faixa_salario  + 
+                            Atraso + 
+                            ValorEmprestimo +
+                            QtdaPagas+ 
+                            salario, family = binomial, data = ds_analise)
+summary(logistica)
+```
+* Retirando a variável faixa_salario pois já tenho a variável de salário
+
+```{r}
+logistica <- glm(default1 ~ Sexo + 
+                            EstadoCivil + 
+                            NumerodeFilhos + 
+                            TempodeResidencia +
+                            Atraso + 
+                            ValorEmprestimo +
+                            QtdaPagas+ 
+                            salario, family = binomial, data = ds_analise)
+summary(logistica)
+```
+* Retirando TempodeResidencia
+```{r}
+logistica <- glm(default1 ~ Sexo + 
+                            EstadoCivil + 
+                            NumerodeFilhos + 
+                            Atraso + 
+                            ValorEmprestimo +
+                            QtdaPagas+ 
+                            salario, family = binomial, data = ds_analise)
+summary(logistica)
+
+# Obtive um ganho no modelo e também não a vejo como significante no contexto de negócio
+```
+* Retirando Atraso
+
+```{r}
+logistica <- glm(default1 ~ Sexo + 
+                            EstadoCivil + 
+                            NumerodeFilhos + 
+                            ValorEmprestimo +
+                            QtdaPagas+ 
+                            salario, family = binomial, data = ds_analise)
+summary(logistica)
+
+# Obtive um ganho no modelo
+```
+* Vou realizar a acuracia do modelo
+
+```{r}
+prob <- predict(logistica, ds_analise, type = 'response')
+resultado <- if_else(prob >= 0.50, 1,0)
+target <- ds_analise$default1 
+tabela <- table(target, resultado)
+acuracia <- ((tabela[1] + tabela[4]) / sum(tabela))
+acuracia
+
+# Acuracia de 74,41%
+```
+
+
+b)  Criar um modelo de árvore de decisão com a variável target default e interpretar as regras do modelo e verificar o quanto o modelo teve de acurácia.
 
 
 ```{r}
-plot(cars)
+library(rpart)
+library(rattle)
+
+mytree = rpart(default ~ Sexo + 
+                EstadoCivil + 
+                NumerodeFilhos + 
+                ValorEmprestimo +
+                QtdaPagas+ 
+                salario,
+                data = ds_analise,
+                method="class")
+mytree
+fancyRpartPlot(mytree)
+```
+Verificando acuracia da arvore de decisão
+
+```{r}
+ds_analise$probArvore = predict(mytree, newdata = ds_analise, type="prob")
+ds_analise$resultadoArvore = predict(mytree, newdata = ds_analise, type="class")
+tabela_arvore  = table(ds_analise$default, ds_analise$resultadoArvore)
+tabela_arvore
+
+acuracia_arvore <- (tabela_arvore[1] + tabela_arvore[4])/sum(tabela_arvore)
+acuracia_arvore
+
+# Acuracia de 76,32%
+```
+c) Verifique qual modelo teve o melhor desempenho e justifique sua resposta.
+
+```{r}
+#A arvore de decisão teve um melhor desempenho 76,32% de acuracia, já a regressão logistica #teve 74,41%.
+#A arvore apresentou um ganho de 1,91% de acuracia em relação à regressão logistica
+```
+
+
+
+d) Explique o porquê você escolheu cada uma das variáveis
+```{r}
+# Sexo -> Para a analise poderia influenciar, se for homem ou mulher. Pensando no contexto negócio
+# Estadocivil -> Uma pessoa casada por exemplo poderia levar a uma inadimplência do que uma pessoa  solteira. Pensando no contexto negócio
+# NumerodeFilhos -> Se uma pessoa possui mais filhos a renda acaba sendo comprometida.Pensando no contexto negócio 
+# TempodeResidencia -> Resolvi tirar pois não vejo que influenciaria. Pensando no contexto negócio 
+# Atraso -> Retirei pois não mostrou muito significativa
+# TempodeServiço -> Exclui esta variável pois o modelo regressão logistica não estava convergindo, e                    estava muito correlacionada com o default
+# comprometido_de_renda -> Exclui esta variável pois o modelo regressão logistica não estava convergindo
+# faixa_salario -> Exclui pois optei por ficar com a variável salário e tive um ganho modelo
+# Conta -> Exclui pois não estava apresentando nenhum dado (1 not defined because of singularities)
 ```
 
