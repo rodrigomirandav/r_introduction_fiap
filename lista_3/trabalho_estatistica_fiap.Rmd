@@ -1,0 +1,316 @@
+---
+title: "Trabalho Estatistica FIAP Trabalho Final"
+author: "Rodrigo de Miranda Videira"
+output:
+  html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+Contexto:
+
+Este estudo é um caso de aplicação do método dos valores hedônicos, para valorar benefícios ambientais associados à proximidade a áreas verdes, existência de vista panorâmica e a localização da propriedade em rua com ou sem poluição sonora, relacionados a preços de apartamentos. O objetivo é contribuir aos estudos de valoração econômica do meio ambiente, propondo, para a análise em questão, a formulação de um modelo desenvolvido a partir de conceitos da engenharia de avaliações e associado ao meio ambiente, através de pesquisa na variação dos valores imobiliários. 
+
+
+Fonte: Marlene Salete Uberti;Norberto Hochheim. Valoração Ambiental: Estudo de Caso no Centro de Florianópolis.
+
+```{r}
+#install.packages('caret', dependencies = TRUE)
+#install.packages('gower', dependencies = TRUE)
+#install.packages('parallelly', dependencies = TRUE)
+#install.packages('psych', dependencies = TRUE)
+```
+
+Bibliotecas utilizadas
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggcorrplot)
+library(ModelMetrics)
+library(caret)
+library(psych)
+library(MASS)
+library(readxl)
+```
+
+Carregando a base de dados para análise
+
+```{r}
+df <- read_delim("Arquivo_Valorizacao_Ambiental_2.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+```
+
+Análisando as variáveis presentes no dataset
+
+```{r}
+names(df)
+```
+
+```{r}
+str(df)
+```
+```{r}
+#Ordem -> ID
+#Valor -> Quantitativa discreta
+#Area -> Quantitativa discreta
+#IA -> Quantitativa discreta
+#Andar -> Categórica ordinal
+#Suites ->  Quantitativa discreta
+#Vista -> Categórica Nominal
+#DistBM -> Quantitativa discreta
+#Semruido -> Categórica Nominal
+#AV100m -> Categórica Nominal 
+```
+ 
+Realizando a correção dos tipos categoricos
+
+```{r}
+df$Andar = as.factor(df$Andar)
+df$Vista = as.factor(df$Vista)
+df$Semruido = as.factor(df$Semruido)
+df$AV100m = as.factor(df$AV100m)
+
+df$Ordem <- NULL
+
+str(df)
+```
+
+Realizando análises estátisticas das variáveis:
+
+* Area (Quantitativa)
+
+```{r}
+summary(df$Area)
+
+# Tirando os quartils Q1 e Q3 para análise de outliers
+Area_Q1 = quantile(df$Area, 0.25)
+Area_Q3 = quantile(df$Area, 0.75)
+Area_IQR = Area_Q3 - Area_Q1
+```
+Gráficos Area
+
+```{r}
+ggplot(df, mapping = aes(x = df$Area)) +
+  geom_histogram(bins = 30)
+```
+```{r}
+ggplot(df, mapping = aes(x = df$Area)) +
+  geom_boxplot()
+```
+
+Pelos gráficos e valores apurados, a variável "Area" possui:
+
+Média: 163,2
+Mediana: 145
+
+Como a média é maior que a mediana, e também pelo histograma os dados possuem assimetria a direita
+Também pelo gráfico de boxplot verificamos alguns outliers à direita, dados com (Area_Q3 + 1.5 * Area_IQR)
+
+```{r}
+
+```
+
+* IA (Quantitativa)
+
+```{r}
+summary(df$IA)
+```
+Gráficos IA
+
+```{r}
+ggplot(df, mapping = aes(x = df$IA)) +
+  geom_histogram(bins = 30)
+```
+
+
+```{r}
+ggplot(df, mapping = aes(x = df$IA)) +
+  geom_boxplot()
+```   
+
+Pelos gráficos e valores apurados, a variável "IA" possui:
+
+Média: 5,65
+Mediana: 2,5
+
+Como a média é maior que a mediana, e também pelo histograma os dados possuem assimetria a direita
+Não identificamos outliers, os apartamentos são considerados novos com idades entre 0 a 19 anos.
+
+```{r}
+
+```
+
+* DistBM (Quantitativa)
+
+```{r}
+summary(df$DistBM)
+
+# Tirando os quartils Q1 e Q3 para análise de outliers
+DistBM_Q1 = quantile(df$DistBM, 0.25)
+DistBM_Q3 = quantile(df$DistBM, 0.75)
+DistBM_IQR = DistBM_Q3 - DistBM_Q1
+```
+Gráficos DistBM
+
+```{r}
+ggplot(df, mapping = aes(x = df$DistBM)) +
+  geom_histogram(bins = 30)
+```
+
+```{r}
+ggplot(df, mapping = aes(x = df$DistBM)) +
+  geom_boxplot()
+```
+
+Pelos gráficos e valores apurados, a variável "DistBM" possui:
+
+Média: 505,90
+Mediana: 402,5
+
+Como a média é maior que a mediana, e também pelo histograma os dados possuem assimetria a direita
+Também pelo gráfico de boxplot verificamos alguns outliers à direita, dados com (DistBM_Q3 + 1.5 * DistBM_IQR)
+
+```{r}
+
+```
+
+Análisando algumas variáveis qualitativas
+
+* Vista
+* Semruido
+* AV100m
+
+```{r}
+vista_tabela <- table(df$Vista);vista_tabela
+perc_sem_vista <- vista_tabela[1] / sum(vista_tabela) * 100; perc_sem_vista
+perc_com_vista <- 100 - perc_sem_vista;perc_com_vista
+```
+- 86,04% de nossos apartamentos não possuem vista panoramica e 13,95% possuem.
+
+```{r}
+ggplot(df, mapping = aes(x = df$Vista)) +
+  geom_bar()
+```
+```{r}
+ruido_tabela <- table(df$Semruido);ruido_tabela
+perc_sem_ruido <- ruido_tabela[1] / sum(ruido_tabela) * 100; perc_sem_ruido
+perc_com_ruido <- 100 - perc_sem_ruido;perc_com_ruido
+```
+- 41,86% de nossos apartamentos estão localizados em ruas que possuem muito ruido e 58,13% estão em áreas mais tranquilas
+
+```{r}
+ggplot(df, mapping = aes(x = df$Semruido)) +
+  geom_bar()
+```
+
+```{r}
+av100m_tabela <- table(df$AV100m);av100m_tabela
+perc_prox_area_verde <- av100m_tabela[1] / sum(av100m_tabela) * 100; perc_prox_area_verde
+perc_longe_area_verde <- 100 - perc_prox_area_verde;perc_longe_area_verde
+```
+- 65,11% de nossos apartamentos estão localizados a areas verdes como por exemplo de praças e 34,88% estão em áreas que não possuem áres verdes proximas.
+
+```{r}
+ggplot(df, mapping = aes(x = df$AV100m)) +
+  geom_bar()
+```
+Realizando análise de correlações das variáveis quantitativas
+
+```{r}
+df_numericos <- select_if(df, is.numeric)
+df_numericos$Valor <- NULL
+correl <-cor(df_numericos)
+ggcorrplot(correl)
+```
+Pelo gráfico as variáveis não possuem uma correlação muito forte.
+Não estão fortemente corelacionadas.
+
+```{r}
+cor(df_numericos)
+```
+Filtrando os dados para tirar outliers
+
+```{r}
+df_sem_outlier <- filter(df, 
+                          df$Area < (Area_Q3 + 1.5 * Area_IQR),
+                         df$DistBM < (DistBM_Q3 + 1.5 * DistBM_IQR)
+                          )
+```
+
+Criando o modelo de regressão linear
+
+```{r}
+modelo_1 <- lm(Valor ~ ., data = df_sem_outlier)
+```
+
+Análisando a performance do modelo
+
+```{r}
+par(mfrow=c(2,2))
+plot(modelo_1)
+```
+Testando a normalidade dos resíduos.
+
+Ho: distribuição dos dados = normal ->  p > 0.05
+H1: distribuição dos dados <> normal ->  p < 0.05
+
+```{r}
+shapiro.test(modelo_1$residuals)
+```
+
+Escolhendo variáveis atráves do stepAIC
+
+```{r}
+mod.simples  <- lm(Valor ~ 1, data = df_sem_outlier)
+stepAIC(modelo_1, scope = list(upper = modelo_1,
+                               lower = mod.simples, direction = "backward"))
+```
+Criando o modelo final com as variáveis selecionadas pelo metodo stepAIC
+
+```{r}
+modelo_2  <- lm(formula = Valor ~ Area + IA + Suites + Vista + DistBM + Semruido, 
+                  data = df_sem_outlier)
+```
+
+Comparando os modelos
+
+```{r}
+summary(modelo_1)
+summary(modelo_2)
+```
+O "modelo_2" foi escolhido por apresentar um R-squared ajustado próximo ao do modelo 1, só que possui menos variáves
+
+```{r}
+modelo_2
+```
+Prevendo valores da base "Estimar_Valor_Imoveis"
+
+```{r}
+# Carregando os dados
+ds_estimar_valores <- read_excel("Estimar_Valor_Imoveis.xlsx")
+ds_estimar_valores
+
+#Alterando nome das colunas
+names(ds_estimar_valores) <- c("Ordem","Area","IA","Andar","Suites","Vista","DistBM","Semruido","AV100m","Valor_Predito")
+
+#Alterando as colunas de Sim ou não para 0 e 1
+ds_estimar_valores$Vista <- ifelse(ds_estimar_valores$Vista == "Sim", 1,0)
+ds_estimar_valores$Semruido <- ifelse(ds_estimar_valores$Semruido == "SIM", 1,0)
+ds_estimar_valores$AV100m <- ifelse(ds_estimar_valores$AV100m == "Sim", 1,0)
+
+#Ajustando as colunas para fator
+ds_estimar_valores$Andar = as.factor(ds_estimar_valores$Andar)
+ds_estimar_valores$Vista = as.factor(ds_estimar_valores$Vista)
+ds_estimar_valores$Semruido = as.factor(ds_estimar_valores$Semruido)
+ds_estimar_valores$AV100m = as.factor(ds_estimar_valores$AV100m)
+
+#Prevendo o valor do apartamento utilizando o modelo_2
+ds_estimar_valores$Valor_Predito <- predict(modelo_2, ds_estimar_valores, type = 'response');
+
+
+write_excel_csv2(ds_estimar_valores, file="Estimar_Valor_Imoveis_Com_Valor_Predito.csv")
+view(ds_estimar_valores)
+```
+
